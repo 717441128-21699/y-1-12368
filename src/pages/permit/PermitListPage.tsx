@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Search, Filter, Eye, FileText, AlertTriangle, CheckCircle, XCircle, Download } from 'lucide-react';
+import { Upload, Search, Filter, Eye, FileText, AlertTriangle, CheckCircle, XCircle, Download, Plus, RefreshCw, AlertOctagon } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { formatNumber, formatPercent, getRelativeTime } from '../../utils';
-import { PermitStatus, type MiningPermit } from '../../types';
+import { PermitStatus, type MiningPermit, type WorkOrder } from '../../types';
 import { Input, Select, Table, Tag, Button, Upload as AntUpload, message, Modal, Progress } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadProps } from 'antd';
@@ -15,11 +15,26 @@ export function PermitListPage() {
   const [searchText, setSearchText] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
+  const [previewModalVisible, setPreviewModalVisible] = useState(false);
+  const [resultModalVisible, setResultModalVisible] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [previewData, setPreviewData] = useState<{
+    permits: MiningPermit[];
+    newWorkOrders: WorkOrder[];
+    newCount: number;
+    overwriteCount: number;
+    skipCount: number;
+  } | null>(null);
+  const [importResult, setImportResult] = useState<{
+    success: boolean;
+    importedCount: number;
+    newWorkOrderCount: number;
+  } | null>(null);
 
-  const { permits, fetchPermits, uploadPermitExcel, isLoading } = useAppStore();
+  const { permits, fetchPermits, previewPermitExcel, confirmPermitImport, isLoading } = useAppStore();
 
   useEffect(() => {
     fetchPermits();
@@ -53,37 +68,51 @@ export function PermitListPage() {
     }, 150);
 
     try {
-      const result = await uploadPermitExcel(file);
+      const preview = await previewPermitExcel(file);
       clearInterval(interval);
       setUploadProgress(100);
-
-      if (result.success) {
-        if (result.newWorkOrderCount > 0) {
-          message.warning(
-            `导入成功：新增${result.importedCount}条许可，检测到${result.newWorkOrderCount}条超量异常，已自动生成工单并推送至执法人员`
-          );
-        } else {
-          message.success(`导入成功：新增${result.importedCount}条许可，所有许可均在正常范围内`);
-        }
-        setTimeout(() => {
-          setUploadModalVisible(false);
-          setIsUploading(false);
-          setUploadProgress(0);
-          fetchPermits();
-        }, 1500);
-      } else {
-        message.error('文件上传失败，请检查文件格式');
+      setPreviewData(preview);
+      
+      setTimeout(() => {
+        setUploadModalVisible(false);
+        setPreviewModalVisible(true);
         setIsUploading(false);
         setUploadProgress(0);
-      }
+      }, 500);
     } catch (error) {
       clearInterval(interval);
-      message.error('上传过程中发生错误');
+      message.error('解析Excel文件失败，请检查文件格式');
       setIsUploading(false);
       setUploadProgress(0);
     }
 
     return false;
+  };
+
+  const handleConfirmImport = async () => {
+    if (!previewData) return;
+    
+    setIsConfirming(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      const result = confirmPermitImport(previewData.permits, previewData.newWorkOrders);
+      setImportResult(result);
+      setPreviewModalVisible(false);
+      setResultModalVisible(true);
+      fetchPermits();
+      
+      if (result.newWorkOrderCount > 0) {
+        message.warning(
+          `导入成功：新增${result.importedCount}条许可，检测到${result.newWorkOrderCount}条超量异常，已自动生成工单并推送至执法人员`
+        );
+      } else {
+        message.success(`导入成功：新增${result.importedCount}条许可，所有许可均在正常范围内`);
+      }
+    } catch (error) {
+      message.error('导入失败，请重试');
+    } finally {
+      setIsConfirming(false);
+    }
   };
 
   const downloadTemplate = () => {
@@ -394,6 +423,180 @@ export function PermitListPage() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <Eye size={20} className="text-primary-600" />
+            <span>导入预览</span>
+          </div>
+        }
+        open={previewModalVisible}
+        onCancel={() => {
+          setPreviewModalVisible(false);
+          setPreviewData(null);
+        }}
+        footer={null}
+        width={800}
+        destroyOnClose
+      >
+        {previewData && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="p-4 bg-success-50 rounded-lg border border-success-200 text-center">
+                <div className="flex items-center justify-center gap-1 text-success-600 mb-1">
+                  <Plus size={18} />
+                  <span className="font-semibold text-2xl">{previewData.newCount}</span>
+                </div>
+                <p className="text-sm text-success-700">新增许可</p>
+              </div>
+              <div className="p-4 bg-warning-50 rounded-lg border border-warning-200 text-center">
+                <div className="flex items-center justify-center gap-1 text-warning-600 mb-1">
+                  <RefreshCw size={18} />
+                  <span className="font-semibold text-2xl">{previewData.overwriteCount}</span>
+                </div>
+                <p className="text-sm text-warning-700">覆盖许可</p>
+              </div>
+              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 text-center">
+                <div className="flex items-center justify-center gap-1 text-gray-500 mb-1">
+                  <AlertOctagon size={18} />
+                  <span className="font-semibold text-2xl">{previewData.skipCount}</span>
+                </div>
+                <p className="text-sm text-gray-600">跳过无效行</p>
+              </div>
+            </div>
+
+            {previewData.newWorkOrders.length > 0 && (
+              <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                <div className="flex items-center gap-2 text-red-700 font-medium mb-1">
+                  <AlertTriangle size={16} />
+                  检测到 {previewData.newWorkOrders.length} 条超量异常，将自动生成异常工单
+                </div>
+                <p className="text-sm text-red-600">超量10%以上的许可将自动生成工单并分配给执法人员王队</p>
+              </div>
+            )}
+
+            <div>
+              <h4 className="font-medium text-gray-800 mb-3">许可明细（{previewData.permits.length} 条）</h4>
+              <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-gray-600 font-medium">许可证号</th>
+                      <th className="px-3 py-2 text-left text-gray-600 font-medium">采砂区</th>
+                      <th className="px-3 py-2 text-left text-gray-600 font-medium">企业</th>
+                      <th className="px-3 py-2 text-right text-gray-600 font-medium">许可量</th>
+                      <th className="px-3 py-2 text-left text-gray-600 font-medium">有效期</th>
+                      <th className="px-3 py-2 text-center text-gray-600 font-medium">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewData.permits.map((permit, idx) => {
+                      const isOverwrite = previewData.overwriteCount > 0 && 
+                        previewData.permits.slice(0, previewData.overwriteCount).some(p => p.permitNo === permit.permitNo);
+                      return (
+                        <tr key={permit.id} className="border-t border-gray-100 hover:bg-gray-50">
+                          <td className="px-3 py-2 font-medium text-primary-700">{permit.permitNo}</td>
+                          <td className="px-3 py-2 text-gray-700">{permit.areaName}</td>
+                          <td className="px-3 py-2 text-gray-700">{permit.enterprise}</td>
+                          <td className="px-3 py-2 text-right text-gray-700">{formatNumber(permit.permittedAmount, 2)}万吨</td>
+                          <td className="px-3 py-2 text-gray-600 text-xs">
+                            {permit.validFrom} ~ {permit.validTo}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            {idx < previewData.overwriteCount ? (
+                              <Tag color="warning">覆盖</Tag>
+                            ) : (
+                              <Tag color="success">新增</Tag>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+              <Button
+                onClick={() => {
+                  setPreviewModalVisible(false);
+                  setPreviewData(null);
+                }}
+                disabled={isConfirming}
+              >
+                取消
+              </Button>
+              <Button
+                type="primary"
+                onClick={handleConfirmImport}
+                loading={isConfirming}
+                icon={<CheckCircle size={14} />}
+              >
+                确认导入
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <CheckCircle size={20} className="text-success-600" />
+            <span>导入结果</span>
+          </div>
+        }
+        open={resultModalVisible}
+        onCancel={() => {
+          setResultModalVisible(false);
+          setImportResult(null);
+        }}
+        footer={null}
+        width={500}
+        destroyOnClose
+      >
+        {importResult && importResult.success && (
+          <div className="space-y-4 text-center py-4">
+            <div className="w-16 h-16 mx-auto rounded-full bg-success-100 flex items-center justify-center">
+              <CheckCircle size={32} className="text-success-600" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-800">导入成功</h3>
+            <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <div className="text-2xl font-bold text-primary-600">{importResult.importedCount}</div>
+                <p className="text-sm text-gray-500">条许可</p>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <div className="text-2xl font-bold text-warning-600">{importResult.newWorkOrderCount}</div>
+                <p className="text-sm text-gray-500">条异常工单</p>
+              </div>
+            </div>
+            <div className="flex justify-center gap-3 pt-4">
+              <Button
+                onClick={() => {
+                  setResultModalVisible(false);
+                  setImportResult(null);
+                }}
+              >
+                关闭
+              </Button>
+              <Button
+                type="primary"
+                onClick={() => {
+                  setResultModalVisible(false);
+                  setImportResult(null);
+                  navigate('/work-order');
+                }}
+                icon={<FileText size={14} />}
+              >
+                查看工单
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

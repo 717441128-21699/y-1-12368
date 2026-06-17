@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Filter, FileText, AlertTriangle, User, Clock, CheckCircle, XCircle, MessageSquare, MapPin } from 'lucide-react';
+import { Search, Filter, FileText, AlertTriangle, User, Clock, CheckCircle, XCircle, MessageSquare, MapPin, ShieldCheck } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { formatNumber, formatPercent, getRelativeTime } from '../../utils';
 import { WorkOrderStatus } from '../../types';
@@ -15,16 +15,26 @@ const LAW_ENFORCERS = [
 
 export function WorkOrderPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user, workOrders, fetchWorkOrders, handleWorkOrder } = useAppStore();
+  
+  const isLawEnforcement = user?.role === 'law_enforcement';
+  const currentUserId = user?.userId || '';
+  
+  const urlStatus = searchParams.get('status') || 'all';
+  const urlAssignee = searchParams.get('assignee') || '';
+  const urlOrderId = searchParams.get('orderId') || '';
+  
+  const defaultAssignee = isLawEnforcement ? currentUserId : (urlAssignee || 'all');
+  
   const [searchText, setSearchText] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>(searchParams.get('status') || 'all');
-  const [filterAssignee, setFilterAssignee] = useState<string>(searchParams.get('assignee') || 'all');
-  const [highlightOrderId, setHighlightOrderId] = useState<string | null>(searchParams.get('orderId'));
+  const [filterStatus, setFilterStatus] = useState<string>(urlStatus);
+  const [filterAssignee, setFilterAssignee] = useState<string>(defaultAssignee);
+  const [highlightOrderId, setHighlightOrderId] = useState<string | null>(urlOrderId);
   const [handleModalVisible, setHandleModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
   const [handleResult, setHandleResult] = useState('');
+  const [siteNote, setSiteNote] = useState('');
   const [form] = Form.useForm();
-
-  const { workOrders, fetchWorkOrders, handleWorkOrder } = useAppStore();
 
   useEffect(() => {
     const filters: Partial<WorkOrder> = {};
@@ -61,6 +71,7 @@ export function WorkOrderPage() {
   const handleHandle = (order: WorkOrder) => {
     setSelectedOrder(order);
     setHandleResult('');
+    setSiteNote('');
     setHandleModalVisible(true);
   };
 
@@ -70,11 +81,12 @@ export function WorkOrderPage() {
       return;
     }
 
-    handleWorkOrder(selectedOrder.id, handleResult);
+    handleWorkOrder(selectedOrder.id, { result: handleResult, siteNote });
     message.success('工单已处理');
     setHandleModalVisible(false);
     setSelectedOrder(null);
     setHandleResult('');
+    setSiteNote('');
   };
 
   const getStatusBadge = (status: WorkOrderStatus) => {
@@ -157,7 +169,8 @@ export function WorkOrderPage() {
       align: 'center',
       fixed: 'right',
       render: (_, record) => (
-        record.status === WorkOrderStatus.PENDING ? (
+        record.status === WorkOrderStatus.PENDING && 
+        (!isLawEnforcement || record.assignee === currentUserId) ? (
           <button
             onClick={() => handleHandle(record)}
             className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-white bg-primary-600 hover:bg-primary-700 rounded-md transition-colors"
@@ -175,9 +188,16 @@ export function WorkOrderPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-serif font-bold text-gray-800 mb-1">工单管理</h2>
-          <p className="text-gray-500 text-sm">管理和处置许可超限等异常工单</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h2 className="text-2xl font-serif font-bold text-gray-800 mb-1">工单管理</h2>
+            <p className="text-gray-500 text-sm">管理和处置许可超限等异常工单</p>
+          </div>
+          {isLawEnforcement && (
+            <Tag icon={<ShieldCheck size={12} />} color="blue" className="text-sm px-3 py-1">
+              执法人员视角：仅显示分配给我的工单
+            </Tag>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <Tag color="warning">
@@ -262,16 +282,18 @@ export function WorkOrderPage() {
                 { value: 'closed', label: '已关闭' },
               ]}
             />
-            <Select
-              value={filterAssignee}
-              onChange={setFilterAssignee}
-              style={{ width: 150 }}
-              size="middle"
-              options={[
-                { value: 'all', label: '全部执法人员' },
-                ...LAW_ENFORCERS,
-              ]}
-            />
+            {!isLawEnforcement && (
+              <Select
+                value={filterAssignee}
+                onChange={setFilterAssignee}
+                style={{ width: 150 }}
+                size="middle"
+                options={[
+                  { value: 'all', label: '全部执法人员' },
+                  ...LAW_ENFORCERS,
+                ]}
+              />
+            )}
           </div>
         </div>
 
@@ -292,25 +314,62 @@ export function WorkOrderPage() {
           }}
           expandable={{
             expandedRowRender: (record) => (
-              <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="p-4 bg-gray-50 rounded-lg space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm text-gray-500 block mb-1">问题描述</label>
                     <p className="text-gray-700">{record.description}</p>
                   </div>
                   <div>
-                    <label className="text-sm text-gray-500 block mb-1">处理结果</label>
-                    <p className={record.handleResult ? 'text-gray-700' : 'text-gray-400'}>
-                      {record.handleResult || '暂无处理结果'}
+                    <label className="text-sm text-gray-500 block mb-1">指派人员</label>
+                    <p className="text-gray-700 flex items-center gap-1">
+                      <User size={14} className="text-gray-400" />
+                      {record.assigneeName || '未指派'}
                     </p>
                   </div>
-                  {record.handleTime && (
-                    <div>
-                      <label className="text-sm text-gray-500 block mb-1">处理时间</label>
-                      <p className="text-gray-700">{new Date(record.handleTime).toLocaleString()}</p>
-                    </div>
-                  )}
                 </div>
+                
+                {record.status === WorkOrderStatus.CLOSED && (
+                  <div className="pt-3 border-t border-gray-200">
+                    <h5 className="font-medium text-gray-700 mb-3 flex items-center gap-1.5">
+                      <CheckCircle size={14} className="text-success-600" />
+                      处理记录
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {record.handleByName && (
+                        <div>
+                          <label className="text-sm text-gray-500 block mb-1">处理人</label>
+                          <p className="text-gray-700 flex items-center gap-1">
+                            <ShieldCheck size={14} className="text-blue-500" />
+                            {record.handleByName}
+                          </p>
+                        </div>
+                      )}
+                      {record.handleTime && (
+                        <div>
+                          <label className="text-sm text-gray-500 block mb-1">处理时间</label>
+                          <p className="text-gray-700">{new Date(record.handleTime).toLocaleString()}</p>
+                        </div>
+                      )}
+                      {record.handleResult && (
+                        <div className="md:col-span-2">
+                          <label className="text-sm text-gray-500 block mb-1">处理结果</label>
+                          <p className="text-gray-700 bg-white p-3 rounded-lg border border-gray-200">
+                            {record.handleResult}
+                          </p>
+                        </div>
+                      )}
+                      {record.siteNote && (
+                        <div className="md:col-span-2">
+                          <label className="text-sm text-gray-500 block mb-1">现场说明</label>
+                          <p className="text-gray-700 bg-white p-3 rounded-lg border border-gray-200">
+                            {record.siteNote}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ),
           }}
@@ -363,8 +422,22 @@ export function WorkOrderPage() {
               <Input.TextArea
                 value={handleResult}
                 onChange={(e) => setHandleResult(e.target.value)}
-                placeholder="请填写处理结果..."
+                placeholder="请填写处理结果，如：已现场核查，责令限期整改..."
                 rows={4}
+                maxLength={500}
+                showCount
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                现场说明
+              </label>
+              <Input.TextArea
+                value={siteNote}
+                onChange={(e) => setSiteNote(e.target.value)}
+                placeholder="请填写现场检查情况、取证记录、整改措施等说明..."
+                rows={3}
                 maxLength={500}
                 showCount
               />

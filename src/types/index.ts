@@ -209,6 +209,9 @@ export interface WorkOrder {
   createTime: number;
   handleTime?: number;
   handleResult?: string;
+  handleBy?: string;
+  handleByName?: string;
+  siteNote?: string;
 }
 
 export interface MiningPermit {

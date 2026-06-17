@@ -92,11 +92,23 @@ interface AppState {
   
   fetchPermits: (filters?: Partial<MiningPermit>) => void;
   selectPermit: (id: string | null) => void;
+  previewPermitExcel: (file: File) => Promise<{
+    permits: MiningPermit[];
+    newWorkOrders: WorkOrder[];
+    newCount: number;
+    overwriteCount: number;
+    skipCount: number;
+  }>;
+  confirmPermitImport: (permits: MiningPermit[], newWorkOrders: WorkOrder[]) => {
+    success: boolean;
+    importedCount: number;
+    newWorkOrderCount: number;
+  };
   uploadPermitExcel: (file: File) => Promise<{ success: boolean; importedCount: number; newWorkOrderCount: number }>;
   
   fetchWorkOrders: (filters?: Partial<WorkOrder>) => void;
   selectWorkOrder: (id: string | null) => void;
-  handleWorkOrder: (orderId: string, result: string) => void;
+  handleWorkOrder: (orderId: string, data: { result: string; siteNote?: string }) => void;
   
   fetchWeeklyReports: (areaId?: string) => void;
   
@@ -513,9 +525,7 @@ export const useAppStore = create<AppState>()(
           set({ currentPermit: permit });
         },
         
-        uploadPermitExcel: async (file: File) => {
-          set({ isLoading: true });
-          
+        previewPermitExcel: async (file: File) => {
           const user = get().user;
           const allAreas = generateMiningAreas(50);
           const filteredAreas = filterAreasByScope(allAreas, user);
@@ -528,6 +538,12 @@ export const useAppStore = create<AppState>()(
           
           const importedPermits: MiningPermit[] = [];
           const newWorkOrders: WorkOrder[] = [];
+          let skipCount = 0;
+          
+          const existingCustomPermits = get().customPermits;
+          const existingPermitNos = new Set(existingCustomPermits.map(p => p.permitNo));
+          
+          const timestamp = Date.now();
           
           for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
@@ -539,14 +555,17 @@ export const useAppStore = create<AppState>()(
             const validFrom = String(row['有效期起'] || row['validFrom'] || row['开始日期'] || '2026-01-01').trim();
             const validTo = String(row['有效期止'] || row['validTo'] || row['结束日期'] || '2026-12-31').trim();
             
-            if (!permitNo || !areaName) continue;
+            if (!permitNo || !areaName) {
+              skipCount++;
+              continue;
+            }
             
             let permittedAmount = Number(permittedAmountRaw);
             if (isNaN(permittedAmount) || permittedAmount <= 0) permittedAmount = 100;
             
             const matchedArea = filteredAreas.find(a => 
               a.name === areaName || a.name.includes(areaName) || areaName.includes(a.name)
-            ) || filteredAreas[i % filteredAreas.length];
+            ) || filteredAreas[i % Math.max(1, filteredAreas.length)];
             
             const area = matchedArea;
             const actualAmount = area.actualAmount;
@@ -555,22 +574,22 @@ export const useAppStore = create<AppState>()(
             let status: PermitStatus = PermitStatus.VALID;
             if (exceedRate >= 10) status = PermitStatus.EXCEEDED;
             
-            const permitId = `permit-import-${Date.now()}-${i}`;
+            const permitId = `permit-import-${timestamp}-${i}`;
             
             const workOrders: WorkOrder[] = [];
             if (exceedRate >= 10) {
               const order: WorkOrder = {
-                id: `workorder-import-${Date.now()}-${i}`,
+                id: `workorder-import-${timestamp}-${i}`,
                 permitId,
                 areaId: area.id,
                 areaName: area.name,
                 type: 'permit_exceed',
                 typeName: '许可超限',
-                description: `${enterprise}（${permitNo}）：实际采砂量${actualAmount.toFixed(2)}万吨超出许可量${permittedAmount.toFixed(2)}万吨${exceedRate.toFixed(1)}%，请执法人员现场核查处置`,
+                description: `${enterprise || '未知企业'}（${permitNo}）：实际采砂量${actualAmount.toFixed(2)}万吨超出许可量${permittedAmount.toFixed(2)}万吨${exceedRate.toFixed(1)}%，请执法人员现场核查处置`,
                 status: WorkOrderStatus.PENDING,
                 assignee: 'law001',
                 assigneeName: '执法人员王队',
-                createTime: Date.now(),
+                createTime: timestamp,
               };
               workOrders.push(order);
               newWorkOrders.push(order);
@@ -589,22 +608,41 @@ export const useAppStore = create<AppState>()(
               validTo,
               status,
               workOrders,
-              createTime: Date.now(),
+              createTime: timestamp,
             });
           }
           
-          const existingCustomPermits = get().customPermits;
           const importedPermitNos = new Set(importedPermits.map(p => p.permitNo));
+          const overwriteCount = [...importedPermitNos].filter(no => existingPermitNos.has(no)).length;
+          const newCount = importedPermits.length - overwriteCount;
+          
+          return {
+            permits: importedPermits,
+            newWorkOrders,
+            newCount,
+            overwriteCount,
+            skipCount,
+          };
+        },
+        
+        confirmPermitImport: (permits, newWorkOrders) => {
+          const existingCustomPermits = get().customPermits;
+          const importedPermitNos = new Set(permits.map(p => p.permitNo));
+          
+          const overwrittenPermits = existingCustomPermits.filter(p => importedPermitNos.has(p.permitNo));
+          const overwrittenPermitIds = new Set(overwrittenPermits.map(p => p.id));
+          
           const filteredExistingPermits = existingCustomPermits.filter(p => !importedPermitNos.has(p.permitNo));
-          const mergedCustomPermits = [...importedPermits, ...filteredExistingPermits];
+          const mergedCustomPermits = [...permits, ...filteredExistingPermits];
           
           const existingCustomOrders = get().customWorkOrders;
+          const filteredExistingOrders = existingCustomOrders.filter(o => !overwrittenPermitIds.has(o.permitId));
+          
           const importedOrderIds = new Set(newWorkOrders.map(o => o.id));
-          const filteredExistingOrders = existingCustomOrders.filter(o => !importedOrderIds.has(o.id));
-          const mergedCustomOrders = [...newWorkOrders, ...filteredExistingOrders];
+          const finalOrders = filteredExistingOrders.filter(o => !importedOrderIds.has(o.id));
+          const mergedCustomOrders = [...newWorkOrders, ...finalOrders];
           
           set({ 
-            isLoading: false, 
             customPermits: mergedCustomPermits,
             customWorkOrders: mergedCustomOrders,
             permits: mergedCustomPermits,
@@ -612,10 +650,15 @@ export const useAppStore = create<AppState>()(
           });
           
           return {
-            success: importedPermits.length > 0,
-            importedCount: importedPermits.length,
+            success: permits.length > 0,
+            importedCount: permits.length,
             newWorkOrderCount: newWorkOrders.length,
           };
+        },
+        
+        uploadPermitExcel: async (file: File) => {
+          const preview = await get().previewPermitExcel(file);
+          return get().confirmPermitImport(preview.permits, preview.newWorkOrders);
         },
         
         fetchWorkOrders: (filters) => {
@@ -653,14 +696,18 @@ export const useAppStore = create<AppState>()(
           set({ currentWorkOrder: order });
         },
         
-        handleWorkOrder: (orderId, result) => {
+        handleWorkOrder: (orderId, data) => {
+          const user = get().user;
           const orders = get().workOrders.map(o => {
             if (o.id === orderId) {
               return {
                 ...o,
                 status: WorkOrderStatus.CLOSED,
-                handleResult: result,
+                handleResult: data.result,
+                siteNote: data.siteNote,
                 handleTime: Date.now(),
+                handleBy: user?.userId,
+                handleByName: user?.realName,
               };
             }
             return o;
@@ -671,8 +718,11 @@ export const useAppStore = create<AppState>()(
               return {
                 ...o,
                 status: WorkOrderStatus.CLOSED,
-                handleResult: result,
+                handleResult: data.result,
+                siteNote: data.siteNote,
                 handleTime: Date.now(),
+                handleBy: user?.userId,
+                handleByName: user?.realName,
               };
             }
             return o;

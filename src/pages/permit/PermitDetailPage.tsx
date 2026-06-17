@@ -222,14 +222,49 @@ export function PermitDetailPage() {
                          order.status === WorkOrderStatus.PROCESSING ? '处理中' : '已关闭'}
                       </Tag>
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">{order.description}</p>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500 flex items-center gap-1">
+                    <p className="text-sm text-gray-600 mb-3">{order.description}</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs mb-2">
+                      <div className="flex items-center gap-1 text-gray-500">
                         <User size={12} />
-                        {order.assigneeName}
-                      </span>
-                      <span className="text-gray-400">{getRelativeTime(order.createTime)}</span>
+                        <span>指派：{order.assigneeName || '未指派'}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-gray-500">
+                        <Clock size={12} />
+                        <span>{getRelativeTime(order.createTime)}</span>
+                      </div>
                     </div>
+                    
+                    {order.status === WorkOrderStatus.CLOSED && (
+                      <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-gray-500">处理人：</span>
+                          <span className="text-gray-700 font-medium">{order.handleByName || '-'}</span>
+                        </div>
+                        {order.handleTime && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-gray-500">处理时间：</span>
+                            <span className="text-gray-700">{new Date(order.handleTime).toLocaleString()}</span>
+                          </div>
+                        )}
+                        {order.handleResult && (
+                          <div className="text-xs">
+                            <span className="text-gray-500 block mb-1">处理结果：</span>
+                            <p className="text-gray-700 bg-white p-2 rounded border border-gray-200">
+                              {order.handleResult}
+                            </p>
+                          </div>
+                        )}
+                        {order.siteNote && (
+                          <div className="text-xs">
+                            <span className="text-gray-500 block mb-1">现场说明：</span>
+                            <p className="text-gray-600 bg-white p-2 rounded border border-gray-200">
+                              {order.siteNote}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
                     <div className="flex items-center justify-end mt-2">
                       <span className="text-xs text-primary-600 flex items-center gap-1">
                         查看工单 <ExternalLink size={12} />
