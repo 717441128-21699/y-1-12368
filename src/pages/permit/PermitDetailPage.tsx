@@ -205,7 +205,10 @@ export function PermitDetailPage() {
                   <div
                     key={order.id}
                     className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                    onClick={() => navigate('/work-order')}
+                    onClick={() => navigate({
+                      pathname: '/work-order',
+                      search: `?orderId=${order.id}&status=${order.status}&assignee=${order.assignee}`,
+                    })}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-medium text-gray-800 text-sm">{order.id}</span>

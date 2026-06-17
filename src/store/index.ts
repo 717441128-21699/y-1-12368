@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, devtools } from 'zustand/middleware';
+import * as XLSX from 'xlsx';
 import {
   type User,
   type DashboardMetrics,
@@ -256,6 +257,26 @@ export const useAppStore = create<AppState>()(
             });
             return true;
           }
+          if (username === 'law001' && password === '123456') {
+            const userData = { ...mockUser, userId: 'law001', username: 'law001', realName: '王队', role: 'law_enforcement', roleName: '执法人员', dataScope: DataScope.MUNICIPAL, regionCode: '320100', regionName: '江苏省南京市' };
+            set({
+              user: userData,
+              currentUser: userData,
+              isAuthenticated: true,
+              isLoading: false,
+            });
+            return true;
+          }
+          if (username === 'law002' && password === '123456') {
+            const userData = { ...mockUser, userId: 'law002', username: 'law002', realName: '李队', role: 'law_enforcement', roleName: '执法人员', dataScope: DataScope.MUNICIPAL, regionCode: '320100', regionName: '江苏省南京市' };
+            set({
+              user: userData,
+              currentUser: userData,
+              isAuthenticated: true,
+              isLoading: false,
+            });
+            return true;
+          }
           
           set({ isLoading: false });
           return false;
@@ -494,19 +515,40 @@ export const useAppStore = create<AppState>()(
         
         uploadPermitExcel: async (file: File) => {
           set({ isLoading: true });
-          await new Promise(resolve => setTimeout(resolve, 1500));
           
           const user = get().user;
           const allAreas = generateMiningAreas(50);
           const filteredAreas = filterAreasByScope(allAreas, user);
           
+          const arrayBuffer = await file.arrayBuffer();
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' }) as Record<string, any>[];
+          
           const importedPermits: MiningPermit[] = [];
           const newWorkOrders: WorkOrder[] = [];
           
-          const importCount = Math.min(5, filteredAreas.length);
-          for (let i = 0; i < importCount; i++) {
-            const area = filteredAreas[i];
-            const permittedAmount = getRandomInRange(100, 400, 2);
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            
+            const permitNo = String(row['许可证号'] || row['permitNo'] || row['许可编号'] || '').trim();
+            const areaName = String(row['采砂区名称'] || row['采砂区'] || row['areaName'] || '').trim();
+            const enterprise = String(row['企业名称'] || row['采砂企业'] || row['enterprise'] || '').trim();
+            const permittedAmountRaw = row['许可采砂量'] || row['许可量'] || row['permittedAmount'] || 0;
+            const validFrom = String(row['有效期起'] || row['validFrom'] || row['开始日期'] || '2026-01-01').trim();
+            const validTo = String(row['有效期止'] || row['validTo'] || row['结束日期'] || '2026-12-31').trim();
+            
+            if (!permitNo || !areaName) continue;
+            
+            let permittedAmount = Number(permittedAmountRaw);
+            if (isNaN(permittedAmount) || permittedAmount <= 0) permittedAmount = 100;
+            
+            const matchedArea = filteredAreas.find(a => 
+              a.name === areaName || a.name.includes(areaName) || areaName.includes(a.name)
+            ) || filteredAreas[i % filteredAreas.length];
+            
+            const area = matchedArea;
             const actualAmount = area.actualAmount;
             const exceedRate = Math.max(0, ((actualAmount - permittedAmount) / permittedAmount) * 100);
             
@@ -524,7 +566,7 @@ export const useAppStore = create<AppState>()(
                 areaName: area.name,
                 type: 'permit_exceed',
                 typeName: '许可超限',
-                description: `Excel导入后自动检测：实际采砂量超出许可量${exceedRate.toFixed(1)}%，请执法人员现场核查处置`,
+                description: `${enterprise}（${permitNo}）：实际采砂量${actualAmount.toFixed(2)}万吨超出许可量${permittedAmount.toFixed(2)}万吨${exceedRate.toFixed(1)}%，请执法人员现场核查处置`,
                 status: WorkOrderStatus.PENDING,
                 assignee: 'law001',
                 assigneeName: '执法人员王队',
@@ -536,15 +578,15 @@ export const useAppStore = create<AppState>()(
             
             importedPermits.push({
               id: permitId,
-              permitNo: `采许字[2026]第${3000 + i}号`,
+              permitNo,
               areaId: area.id,
               areaName: area.name,
-              enterprise: `Excel导入企业${i + 1}`,
+              enterprise: enterprise || `辖区企业${i + 1}`,
               permittedAmount,
               actualAmount,
               exceedRate: Math.round(exceedRate * 10) / 10,
-              validFrom: '2026-01-01',
-              validTo: '2026-12-31',
+              validFrom,
+              validTo,
               status,
               workOrders,
               createTime: Date.now(),
@@ -570,7 +612,7 @@ export const useAppStore = create<AppState>()(
           });
           
           return {
-            success: file.name.endsWith('.xlsx') || file.name.endsWith('.xls'),
+            success: importedPermits.length > 0,
             importedCount: importedPermits.length,
             newWorkOrderCount: newWorkOrders.length,
           };

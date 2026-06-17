@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Search, Filter, FileText, AlertTriangle, User, Clock, CheckCircle, XCircle, MessageSquare } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Search, Filter, FileText, AlertTriangle, User, Clock, CheckCircle, XCircle, MessageSquare, MapPin } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { formatNumber, formatPercent, getRelativeTime } from '../../utils';
 import { WorkOrderStatus } from '../../types';
@@ -7,9 +8,17 @@ import { Input, Select, Table, Tag, Button, Modal, Form, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { WorkOrder } from '../../types';
 
+const LAW_ENFORCERS = [
+  { value: 'law001', label: '执法人员王队' },
+  { value: 'law002', label: '执法人员李队' },
+];
+
 export function WorkOrderPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchText, setSearchText] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>(searchParams.get('status') || 'all');
+  const [filterAssignee, setFilterAssignee] = useState<string>(searchParams.get('assignee') || 'all');
+  const [highlightOrderId, setHighlightOrderId] = useState<string | null>(searchParams.get('orderId'));
   const [handleModalVisible, setHandleModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
   const [handleResult, setHandleResult] = useState('');
@@ -18,8 +27,28 @@ export function WorkOrderPage() {
   const { workOrders, fetchWorkOrders, handleWorkOrder } = useAppStore();
 
   useEffect(() => {
-    fetchWorkOrders();
-  }, [fetchWorkOrders]);
+    const filters: Partial<WorkOrder> = {};
+    if (filterStatus && filterStatus !== 'all') {
+      (filters as any).status = filterStatus;
+    }
+    if (filterAssignee && filterAssignee !== 'all') {
+      (filters as any).assignee = filterAssignee;
+    }
+    fetchWorkOrders(filters);
+    setSearchParams({ status: filterStatus, assignee: filterAssignee }, { replace: true });
+  }, [fetchWorkOrders, filterStatus, filterAssignee, setSearchParams]);
+
+  useEffect(() => {
+    if (highlightOrderId) {
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`order-row-${highlightOrderId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightOrderId, workOrders]);
 
   const filteredOrders = workOrders.filter(order => {
     const matchSearch = order.id.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -233,6 +262,16 @@ export function WorkOrderPage() {
                 { value: 'closed', label: '已关闭' },
               ]}
             />
+            <Select
+              value={filterAssignee}
+              onChange={setFilterAssignee}
+              style={{ width: 150 }}
+              size="middle"
+              options={[
+                { value: 'all', label: '全部执法人员' },
+                ...LAW_ENFORCERS,
+              ]}
+            />
           </div>
         </div>
 
@@ -241,6 +280,10 @@ export function WorkOrderPage() {
           dataSource={filteredOrders}
           rowKey="id"
           scroll={{ x: 1200 }}
+          rowClassName={(record) => record.id === highlightOrderId ? 'bg-primary-50 border-2 border-primary-400' : ''}
+          onRow={(record) => ({
+            id: `order-row-${record.id}`,
+          })}
           pagination={{
             total: filteredOrders.length,
             pageSize: 10,

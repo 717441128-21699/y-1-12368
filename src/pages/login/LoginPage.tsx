@@ -128,6 +128,14 @@ export function LoginPage() {
                 <p className="font-medium">采砂企业</p>
                 <p className="text-gray-500">enterprise / 123456</p>
               </div>
+              <div className="p-2 bg-blue-50 rounded border border-blue-100">
+                <p className="font-medium text-blue-700">执法人员王队</p>
+                <p className="text-blue-500">law001 / 123456</p>
+              </div>
+              <div className="p-2 bg-blue-50 rounded border border-blue-100">
+                <p className="font-medium text-blue-700">执法人员李队</p>
+                <p className="text-blue-500">law002 / 123456</p>
+              </div>
             </div>
           </div>
         </Card>
