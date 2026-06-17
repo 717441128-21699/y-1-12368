@@ -367,11 +367,14 @@ export function generateWorkOrders(count = 10, miningAreas?: MiningArea[]): Work
   return orders.sort((a, b) => a.createTime - b.createTime);
 }
 
-export function generateWeeklyReports(areaId?: string, count = 8): WeeklyReport[] {
+export function generateWeeklyReports(areaId?: string, count = 8, miningAreas?: MiningArea[]): WeeklyReport[] {
   const reports: WeeklyReport[] = [];
-  const areas = areaId ? [{ id: areaId, name: '指定采砂区' }] : generateMiningAreas(count);
+  const areas = areaId 
+    ? [{ id: areaId, name: '指定采砂区' }] 
+    : (miningAreas && miningAreas.length > 0 ? miningAreas : generateMiningAreas(count));
   
-  for (let i = 0; i < count; i++) {
+  const reportCount = Math.min(count, areas.length);
+  for (let i = 0; i < reportCount; i++) {
     const area = areas[i];
     const date = new Date();
     date.setDate(date.getDate() - i * 7);

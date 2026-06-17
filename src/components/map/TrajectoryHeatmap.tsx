@@ -9,14 +9,38 @@ interface TrajectoryHeatmapProps {
   height?: number;
 }
 
-export function TrajectoryHeatmap({ data, center = [104, 35], boundary, height = 400 }: TrajectoryHeatmapProps) {
+export function TrajectoryHeatmap({ data, center, boundary, height = 400 }: TrajectoryHeatmapProps) {
   const viewBounds = useMemo(() => {
-    let minLng = center[0];
-    let maxLng = center[0];
-    let minLat = center[1];
-    let maxLat = center[1];
+    let minLng = Infinity;
+    let maxLng = -Infinity;
+    let minLat = Infinity;
+    let maxLat = -Infinity;
 
-    if (data && data.length > 0) {
+    const hasBoundary = boundary && boundary.length > 0;
+    const hasData = data && data.length > 0;
+    const hasCenter = !!center;
+
+    const boundaryPoints: [number, number][] = hasBoundary 
+      ? boundary 
+      : hasCenter 
+        ? [
+            [center[0] - 0.05, center[1] - 0.05],
+            [center[0] + 0.05, center[1] - 0.05],
+            [center[0] + 0.05, center[1] + 0.05],
+            [center[0] - 0.05, center[1] + 0.05],
+          ]
+        : [];
+
+    if (boundaryPoints.length > 0) {
+      const bLngs = boundaryPoints.map(p => p[0]);
+      const bLats = boundaryPoints.map(p => p[1]);
+      minLng = Math.min(minLng, ...bLngs);
+      maxLng = Math.max(maxLng, ...bLngs);
+      minLat = Math.min(minLat, ...bLats);
+      maxLat = Math.max(maxLat, ...bLats);
+    }
+
+    if (hasData) {
       const lngs = data.map(d => d[0]);
       const lats = data.map(d => d[1]);
       minLng = Math.min(minLng, ...lngs);
@@ -25,24 +49,22 @@ export function TrajectoryHeatmap({ data, center = [104, 35], boundary, height =
       maxLat = Math.max(maxLat, ...lats);
     }
 
-    const boundaryPoints = boundary && boundary.length > 0 
-      ? boundary 
-      : [
-          [center[0] - 0.05, center[1] - 0.05],
-          [center[0] + 0.05, center[1] - 0.05],
-          [center[0] + 0.05, center[1] + 0.05],
-          [center[0] - 0.05, center[1] + 0.05],
-        ];
-    
-    const bLngs = boundaryPoints.map(p => p[0]);
-    const bLats = boundaryPoints.map(p => p[1]);
-    minLng = Math.min(minLng, ...bLngs);
-    maxLng = Math.max(maxLng, ...bLngs);
-    minLat = Math.min(minLat, ...bLats);
-    maxLat = Math.max(maxLat, ...bLats);
+    if (minLng === Infinity) {
+      if (hasCenter) {
+        minLng = center[0] - 0.1;
+        maxLng = center[0] + 0.1;
+        minLat = center[1] - 0.1;
+        maxLat = center[1] + 0.1;
+      } else {
+        minLng = 73;
+        maxLng = 135;
+        minLat = 18;
+        maxLat = 54;
+      }
+    }
 
-    const lngPad = (maxLng - minLng) * 0.2 || 0.1;
-    const latPad = (maxLat - minLat) * 0.2 || 0.1;
+    const lngPad = (maxLng - minLng) * 0.15 || 0.1;
+    const latPad = (maxLat - minLat) * 0.15 || 0.1;
 
     return {
       minLng: minLng - lngPad,

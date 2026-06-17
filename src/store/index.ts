@@ -62,9 +62,11 @@ interface AppState {
   
   permits: MiningPermit[];
   currentPermit: MiningPermit | null;
+  customPermits: MiningPermit[];
   
   workOrders: WorkOrder[];
   currentWorkOrder: WorkOrder | null;
+  customWorkOrders: WorkOrder[];
   
   weeklyReports: WeeklyReport[];
   
@@ -205,9 +207,11 @@ export const useAppStore = create<AppState>()(
         
         permits: [],
         currentPermit: null,
+        customPermits: [],
         
         workOrders: [],
         currentWorkOrder: null,
+        customWorkOrders: [],
         
         weeklyReports: [],
         
@@ -461,11 +465,22 @@ export const useAppStore = create<AppState>()(
           const allAreas = generateMiningAreas(50);
           const filteredAreas = filterAreasByScope(allAreas, user);
           
-          let permits = generateMiningPermits(Math.max(8, Math.min(15, filteredAreas.length)), filteredAreas);
+          const mockPermits = generateMiningPermits(Math.max(8, Math.min(15, filteredAreas.length)), filteredAreas);
+          const custom = get().customPermits;
+          
+          const customPermitNos = new Set(custom.map(p => p.permitNo));
+          const filteredMock = mockPermits.filter(p => !customPermitNos.has(p.permitNo));
+          
+          let merged = [...custom, ...filteredMock];
+          merged = merged.filter(p => {
+            const area = filteredAreas.find(a => a.id === p.areaId);
+            return area || custom.some(cp => cp.id === p.id);
+          });
+          
           if (filters?.status) {
-            permits = permits.filter(p => p.status === filters.status);
+            merged = merged.filter(p => p.status === filters.status);
           }
-          set({ permits });
+          set({ permits: merged });
         },
         
         selectPermit: (id) => {
@@ -536,16 +551,22 @@ export const useAppStore = create<AppState>()(
             });
           }
           
-          const existingPermits = get().permits;
-          const mergedPermits = [...importedPermits, ...existingPermits];
+          const existingCustomPermits = get().customPermits;
+          const importedPermitNos = new Set(importedPermits.map(p => p.permitNo));
+          const filteredExistingPermits = existingCustomPermits.filter(p => !importedPermitNos.has(p.permitNo));
+          const mergedCustomPermits = [...importedPermits, ...filteredExistingPermits];
           
-          const existingOrders = get().workOrders;
-          const mergedOrders = [...newWorkOrders, ...existingOrders];
+          const existingCustomOrders = get().customWorkOrders;
+          const importedOrderIds = new Set(newWorkOrders.map(o => o.id));
+          const filteredExistingOrders = existingCustomOrders.filter(o => !importedOrderIds.has(o.id));
+          const mergedCustomOrders = [...newWorkOrders, ...filteredExistingOrders];
           
           set({ 
             isLoading: false, 
-            permits: mergedPermits,
-            workOrders: mergedOrders,
+            customPermits: mergedCustomPermits,
+            customWorkOrders: mergedCustomOrders,
+            permits: mergedCustomPermits,
+            workOrders: mergedCustomOrders,
           });
           
           return {
@@ -560,14 +581,25 @@ export const useAppStore = create<AppState>()(
           const allAreas = generateMiningAreas(50);
           const filteredAreas = filterAreasByScope(allAreas, user);
           
-          let orders = generateWorkOrders(Math.max(5, Math.min(12, filteredAreas.length)), filteredAreas);
+          const mockOrders = generateWorkOrders(Math.max(5, Math.min(12, filteredAreas.length)), filteredAreas);
+          const custom = get().customWorkOrders;
+          
+          const customIds = new Set(custom.map(o => o.id));
+          const filteredMock = mockOrders.filter(o => !customIds.has(o.id));
+          
+          let merged = [...custom, ...filteredMock];
+          merged = merged.filter(o => {
+            const area = filteredAreas.find(a => a.id === o.areaId);
+            return area || custom.some(co => co.id === o.id);
+          });
+          
           if (filters?.status) {
-            orders = orders.filter(o => o.status === filters.status);
+            merged = merged.filter(o => o.status === filters.status);
           }
           if (filters?.assignee) {
-            orders = orders.filter(o => o.assignee === filters.assignee);
+            merged = merged.filter(o => o.assignee === filters.assignee);
           }
-          set({ workOrders: orders });
+          set({ workOrders: merged });
         },
         
         selectWorkOrder: (id) => {
@@ -591,11 +623,26 @@ export const useAppStore = create<AppState>()(
             }
             return o;
           });
-          set({ workOrders: orders });
+          
+          const customOrders = get().customWorkOrders.map(o => {
+            if (o.id === orderId) {
+              return {
+                ...o,
+                status: WorkOrderStatus.CLOSED,
+                handleResult: result,
+                handleTime: Date.now(),
+              };
+            }
+            return o;
+          });
+          set({ workOrders: orders, customWorkOrders: customOrders });
         },
         
         fetchWeeklyReports: (areaId) => {
-          set({ weeklyReports: generateWeeklyReports(areaId, 8) });
+          const user = get().user;
+          const allAreas = generateMiningAreas(50);
+          const filteredAreas = filterAreasByScope(allAreas, user);
+          set({ weeklyReports: generateWeeklyReports(areaId, 8, filteredAreas) });
         },
         
         toggleSidebar: () => {
@@ -635,8 +682,11 @@ export const useAppStore = create<AppState>()(
         name: 'sand-mining-storage',
         partialize: (state) => ({
           user: state.user,
+          currentUser: state.currentUser,
           isAuthenticated: state.isAuthenticated,
           sidebarCollapsed: state.sidebarCollapsed,
+          customPermits: state.customPermits,
+          customWorkOrders: state.customWorkOrders,
         }),
       }
     )

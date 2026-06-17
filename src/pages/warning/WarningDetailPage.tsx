@@ -51,12 +51,16 @@ export function WarningDetailPage() {
     currentWarning.status !== WarningStatus.CLOSED;
 
   const userRole = user?.role || '';
+  const requireRole = currentNode?.requireRole || '';
+  
+  const isEnterpriseNode = requireRole === 'enterprise';
+  const isCountyNode = requireRole === 'county_admin';
+  const isProvinceNode = requireRole === 'provincial_admin';
+  
   const canApproveCurrentNode = isFlowActive && (
-    userRole === 'national_admin' ||
-    userRole === currentNode?.requireRole ||
-    (currentNode?.requireRole === 'enterprise' && userRole === 'enterprise') ||
-    (currentNode?.requireRole === 'county_admin' && userRole === 'county_admin') ||
-    (currentNode?.requireRole === 'provincial_admin' && userRole === 'provincial_admin')
+    (isEnterpriseNode && userRole === 'enterprise') ||
+    (isCountyNode && userRole === 'county_admin') ||
+    (isProvinceNode && userRole === 'provincial_admin')
   );
 
   const getRoleName = (role: string) => {
@@ -65,8 +69,13 @@ export function WarningDetailPage() {
       'county_admin': '县级水利局',
       'provincial_admin': '省级河长办',
       'national_admin': '国家级管理员',
+      'law_enforcement': '执法人员',
     };
     return roleMap[role] || role;
+  };
+
+  const getCurrentUserRoleName = () => {
+    return getRoleName(userRole);
   };
 
   const handleApprove = async () => {
@@ -126,7 +135,11 @@ export function WarningDetailPage() {
         </div>
         <div className="flex items-center gap-3">
           {canApproveCurrentNode ? (
-            <>
+            <div className="flex items-center gap-3">
+              <div className="text-xs px-2.5 py-1 rounded-lg bg-success-50 text-success-700 flex items-center gap-1 border border-success-200">
+                <CheckCircle size={12} />
+                您的角色「{getCurrentUserRoleName()}」可审批此节点
+              </div>
               <button
                 onClick={() => setRejectionModalVisible(true)}
                 className="btn-danger flex items-center gap-1.5"
@@ -141,13 +154,23 @@ export function WarningDetailPage() {
                 <CheckCircle size={16} />
                 通过
               </button>
-            </>
-          ) : isFlowActive ? (
-            <div className="text-sm text-gray-500 flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-lg">
-              <Lock size={14} />
-              当前节点需由「{currentNode ? getRoleName(currentNode.requireRole) : '-'}」处理
             </div>
-          ) : null}
+          ) : isFlowActive ? (
+            <div className="text-sm flex items-center gap-3">
+              <div className="text-xs px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 flex items-center gap-1 border border-gray-200">
+                <User size={12} />
+                您的角色：{getCurrentUserRoleName()}
+              </div>
+              <div className="text-sm text-danger-600 flex items-center gap-1.5 bg-danger-50 px-3 py-1.5 rounded-lg border border-danger-200">
+                <Lock size={14} />
+                此节点需由「{currentNode ? getRoleName(currentNode.requireRole) : '-'}」审批
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 text-gray-500 border border-gray-200">
+              流程已结束
+            </div>
+          )}
         </div>
       </div>
 
