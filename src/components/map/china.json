@@ -1,0 +1,277 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "北京市" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[115.4, 39.4], [117.5, 39.4], [117.5, 41.1], [115.4, 41.1], [115.4, 39.4]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "天津市" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[116.7, 38.7], [118.1, 38.7], [118.1, 40.2], [116.7, 40.2], [116.7, 38.7]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "河北省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[113.5, 36.0], [119.9, 36.0], [119.9, 42.6], [113.5, 42.6], [113.5, 36.0]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "山西省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[110.2, 34.5], [114.7, 34.5], [114.7, 40.8], [110.2, 40.8], [110.2, 34.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "内蒙古自治区" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[97.0, 37.4], [126.1, 37.4], [126.1, 53.6], [97.0, 53.6], [97.0, 37.4]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "辽宁省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[118.8, 38.4], [125.7, 38.4], [125.7, 43.5], [118.8, 43.5], [118.8, 38.4]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "吉林省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[121.6, 40.9], [131.3, 40.9], [131.3, 46.3], [121.6, 46.3], [121.6, 40.9]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "黑龙江省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[121.2, 43.4], [135.1, 43.4], [135.1, 53.6], [121.2, 53.6], [121.2, 43.4]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "上海市" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[120.9, 30.7], [122.0, 30.7], [122.0, 31.9], [120.9, 31.9], [120.9, 30.7]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "江苏省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[116.4, 30.8], [122.0, 30.8], [122.0, 35.2], [116.4, 35.2], [116.4, 30.8]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "浙江省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[118.0, 27.0], [123.2, 27.0], [123.2, 31.4], [118.0, 31.4], [118.0, 27.0]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "安徽省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[114.9, 29.4], [119.6, 29.4], [119.6, 34.7], [114.9, 34.7], [114.9, 29.4]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "福建省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[116.0, 23.5], [120.6, 23.5], [120.6, 28.3], [116.0, 28.3], [116.0, 23.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "江西省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[113.5, 24.4], [118.5, 24.4], [118.5, 30.2], [113.5, 30.2], [113.5, 24.4]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "山东省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[114.8, 34.3], [122.8, 34.3], [122.8, 38.5], [114.8, 38.5], [114.8, 34.3]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "河南省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[110.4, 31.4], [116.7, 31.4], [116.7, 36.4], [110.4, 36.4], [110.4, 31.4]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "湖北省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[108.4, 29.0], [116.1, 29.0], [116.1, 33.3], [108.4, 33.3], [108.4, 29.0]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "湖南省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[108.8, 24.6], [114.3, 24.6], [114.3, 30.1], [108.8, 30.1], [108.8, 24.6]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "广东省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[109.4, 20.1], [117.2, 20.1], [117.2, 25.5], [109.4, 25.5], [109.4, 20.1]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "广西壮族自治区" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[104.3, 20.5], [112.1, 20.5], [112.1, 26.4], [104.3, 26.4], [104.3, 20.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "海南省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[108.6, 18.2], [111.1, 18.2], [111.1, 20.2], [108.6, 20.2], [108.6, 18.2]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "重庆市" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[105.3, 28.2], [110.2, 28.2], [110.2, 32.2], [105.3, 32.2], [105.3, 28.2]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "四川省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[97.4, 26.0], [108.5, 26.0], [108.5, 34.3], [97.4, 34.3], [97.4, 26.0]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "贵州省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[103.6, 24.6], [109.6, 24.6], [109.6, 29.2], [103.6, 29.2], [103.6, 24.6]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "云南省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[97.5, 21.1], [106.2, 21.1], [106.2, 29.2], [97.5, 29.2], [97.5, 21.1]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "西藏自治区" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[78.4, 26.8], [99.1, 26.8], [99.1, 36.5], [78.4, 36.5], [78.4, 26.8]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "陕西省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[105.3, 31.7], [111.2, 31.7], [111.2, 39.6], [105.3, 39.6], [105.3, 31.7]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "甘肃省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[92.3, 32.6], [108.7, 32.6], [108.7, 42.8], [92.3, 42.8], [92.3, 32.6]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "青海省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[89.4, 31.6], [103.1, 31.6], [103.1, 39.2], [89.4, 39.2], [89.4, 31.6]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "宁夏回族自治区" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[104.3, 35.2], [107.7, 35.2], [107.7, 39.4], [104.3, 39.4], [104.3, 35.2]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "新疆维吾尔自治区" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[73.5, 34.3], [96.4, 34.3], [96.4, 49.2], [73.5, 49.2], [73.5, 34.3]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "台湾省" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[119.3, 21.9], [122.0, 21.9], [122.0, 25.3], [119.3, 25.3], [119.3, 21.9]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "香港特别行政区" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[113.8, 22.1], [114.4, 22.1], [114.4, 22.6], [113.8, 22.6], [113.8, 22.1]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "澳门特别行政区" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[113.5, 22.1], [113.6, 22.1], [113.6, 22.3], [113.5, 22.3], [113.5, 22.1]]]
+      }
+    }
+  ]
+}
