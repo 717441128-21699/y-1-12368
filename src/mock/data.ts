@@ -102,10 +102,30 @@ function generateBoundary(center: [number, number]): [number, number][] {
 
 export function generateMiningAreas(count = 50): MiningArea[] {
   const areas: MiningArea[] = [];
+  
+  const fixedAreas = [
+    { province: '江苏省', city: '南京市', county: '江宁区' },
+    { province: '江苏省', city: '南京市', county: '江宁区' },
+    { province: '江苏省', city: '南京市', county: '鼓楼区' },
+    { province: '江苏省', city: '苏州市', county: '姑苏区' },
+    { province: '江苏省', city: '无锡市', county: '滨湖区' },
+    { province: '湖北省', city: '武汉市', county: '洪山区' },
+    { province: '湖北省', city: '武汉市', county: '武昌区' },
+    { province: '湖南省', city: '长沙市', county: '岳麓区' },
+  ];
+  
   for (let i = 0; i < count; i++) {
-    const province = provinces[Math.floor(Math.random() * provinces.length)];
-    const city = cities[Math.floor(Math.random() * cities.length)];
-    const county = counties[Math.floor(Math.random() * counties.length)];
+    let province, city, county;
+    if (i < fixedAreas.length) {
+      province = fixedAreas[i].province;
+      city = fixedAreas[i].city;
+      county = fixedAreas[i].county;
+    } else {
+      province = provinces[Math.floor(Math.random() * provinces.length)];
+      city = cities[Math.floor(Math.random() * cities.length)];
+      county = counties[Math.floor(Math.random() * counties.length)];
+    }
+    
     const center = generateCenter();
     const permittedAmount = getRandomInRange(50, 500, 2);
     const actualAmount = getRandomInRange(permittedAmount * 0.7, permittedAmount * 1.4, 2);
@@ -196,17 +216,17 @@ export function generateMiningShips(areaId: string, areaCenter: [number, number]
   return ships;
 }
 
-export function generateWarnings(count = 10): Warning[] {
+export function generateWarnings(count = 10, miningAreas?: MiningArea[]): Warning[] {
   const warnings: Warning[] = [];
   const types = [WarningType.OVER_MINING, WarningType.WATER_LEVEL_DROP, WarningType.PERMIT_EXCEED];
   const statuses = [WarningStatus.PENDING, WarningStatus.CONFIRMED, WarningStatus.REVIEWED, WarningStatus.APPROVED, WarningStatus.CLOSED];
   
-  const miningAreas = generateMiningAreas(20);
+  const areas = miningAreas || generateMiningAreas(20);
   
   for (let i = 0; i < count; i++) {
     const type = types[Math.floor(Math.random() * types.length)];
     const level = Math.random() > 0.7 ? WarningLevel.LEVEL_1 : Math.random() > 0.5 ? WarningLevel.LEVEL_2 : WarningLevel.LEVEL_3;
-    const area = miningAreas[Math.floor(Math.random() * miningAreas.length)];
+    const area = areas[Math.floor(Math.random() * areas.length)];
     const status = statuses[Math.floor(Math.random() * statuses.length)];
     const currentNode = status === WarningStatus.PENDING ? 0 : status === WarningStatus.CONFIRMED ? 1 : status === WarningStatus.REVIEWED ? 2 : 3;
     
@@ -267,13 +287,13 @@ export function generateWarnings(count = 10): Warning[] {
   return warnings.sort((a, b) => b.triggerTime - a.triggerTime);
 }
 
-export function generateMiningPermits(count = 15): MiningPermit[] {
+export function generateMiningPermits(count = 15, miningAreas?: MiningArea[]): MiningPermit[] {
   const permits: MiningPermit[] = [];
   const enterprises = ['长江砂石集团有限公司', '黄河河道工程有限公司', '珠江采砂有限公司', '淮河建材有限公司', '海河砂石有限公司'];
-  const miningAreas = generateMiningAreas(count);
+  const areas = miningAreas || generateMiningAreas(count);
   
-  for (let i = 0; i < count; i++) {
-    const area = miningAreas[i];
+  for (let i = 0; i < Math.min(count, areas.length); i++) {
+    const area = areas[i];
     const permittedAmount = getRandomInRange(100, 500, 2);
     const actualAmount = getRandomInRange(permittedAmount * 0.6, permittedAmount * 1.3, 2);
     const exceedRate = Math.max(0, ((actualAmount - permittedAmount) / permittedAmount) * 100);
@@ -318,13 +338,13 @@ export function generateMiningPermits(count = 15): MiningPermit[] {
   return permits;
 }
 
-export function generateWorkOrders(count = 10): WorkOrder[] {
+export function generateWorkOrders(count = 10, miningAreas?: MiningArea[]): WorkOrder[] {
   const orders: WorkOrder[] = [];
-  const miningAreas = generateMiningAreas(count);
+  const areas = miningAreas || generateMiningAreas(count);
   const statuses = [WorkOrderStatus.PENDING, WorkOrderStatus.PROCESSING, WorkOrderStatus.CLOSED];
   
-  for (let i = 0; i < count; i++) {
-    const area = miningAreas[i];
+  for (let i = 0; i < Math.min(count, areas.length); i++) {
+    const area = areas[i];
     const status = statuses[Math.floor(Math.random() * statuses.length)];
     
     orders.push({

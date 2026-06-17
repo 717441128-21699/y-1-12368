@@ -8,9 +8,9 @@ interface WaterMonitorProps {
 
 export function WaterMonitor({ data }: WaterMonitorProps) {
   const latestData = data.length > 0 ? data[data.length - 1] : null;
-  const avgWaterLevel = data.reduce((sum, d) => sum + d.waterLevel, 0) / data.length;
-  const avgFlowRate = data.reduce((sum, d) => sum + d.flowRate, 0) / data.length;
-  const maxDropRate = Math.max(...data.map(d => d.dropRate));
+  const avgWaterLevel = data.length > 0 ? data.reduce((sum, d) => sum + d.waterLevel, 0) / data.length : 0;
+  const avgFlowRate = data.length > 0 ? data.reduce((sum, d) => sum + d.flowRate, 0) / data.length : 0;
+  const maxDropRate = data.length > 0 ? Math.max(...data.map(d => d.dropRate)) : 0;
 
   const chartData = data.slice(-24).map(d => ({
     time: new Date(d.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),

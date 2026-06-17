@@ -53,18 +53,24 @@ export function PermitListPage() {
     }, 150);
 
     try {
-      const success = await uploadPermitExcel(file);
+      const result = await uploadPermitExcel(file);
       clearInterval(interval);
       setUploadProgress(100);
 
-      if (success) {
-        message.success('Excel文件上传成功，系统已自动提取许可量数据');
+      if (result.success) {
+        if (result.newWorkOrderCount > 0) {
+          message.warning(
+            `导入成功：新增${result.importedCount}条许可，检测到${result.newWorkOrderCount}条超量异常，已自动生成工单并推送至执法人员`
+          );
+        } else {
+          message.success(`导入成功：新增${result.importedCount}条许可，所有许可均在正常范围内`);
+        }
         setTimeout(() => {
           setUploadModalVisible(false);
           setIsUploading(false);
           setUploadProgress(0);
           fetchPermits();
-        }, 1000);
+        }, 1500);
       } else {
         message.error('文件上传失败，请检查文件格式');
         setIsUploading(false);

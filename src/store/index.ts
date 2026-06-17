@@ -16,7 +16,10 @@ import {
   type TrendData,
   DataScope,
   WorkOrderStatus,
+  AreaStatus,
+  PermitStatus,
 } from '../types';
+import { getRandomInRange } from '../utils';
 import {
   mockUser,
   generateDashboardMetrics,
@@ -86,7 +89,7 @@ interface AppState {
   
   fetchPermits: (filters?: Partial<MiningPermit>) => void;
   selectPermit: (id: string | null) => void;
-  uploadPermitExcel: (file: File) => Promise<boolean>;
+  uploadPermitExcel: (file: File) => Promise<{ success: boolean; importedCount: number; newWorkOrderCount: number }>;
   
   fetchWorkOrders: (filters?: Partial<WorkOrder>) => void;
   selectWorkOrder: (id: string | null) => void;
@@ -104,6 +107,76 @@ interface AppState {
 }
 
 let realTimeInterval: NodeJS.Timeout | null = null;
+
+function getCurrentScope(user: User | null) {
+  if (!user) return { scope: DataScope.NATIONAL, province: '', city: '', county: '', enterprise: '' };
+  
+  let province = '';
+  let city = '';
+  let county = '';
+  
+  const regionName = user.regionName || '';
+  
+  if (user.dataScope === DataScope.PROVINCIAL) {
+    province = regionName;
+  } else if (user.dataScope === DataScope.MUNICIPAL) {
+    if (regionName.includes('省')) {
+      const parts = regionName.split(/省|自治区/);
+      province = parts[0] + (regionName.includes('自治区') ? '自治区' : '省');
+      city = parts[1] || regionName;
+    } else {
+      city = regionName;
+    }
+  } else if (user.dataScope === DataScope.COUNTY) {
+    if (regionName.includes('省')) {
+      const provinceEnd = regionName.indexOf('省') !== -1 ? regionName.indexOf('省') + 1 :
+                         regionName.indexOf('自治区') !== -1 ? regionName.indexOf('自治区') + 3 : 0;
+      province = regionName.substring(0, provinceEnd);
+      const rest = regionName.substring(provinceEnd);
+      const cityEnd = rest.indexOf('市') !== -1 ? rest.indexOf('市') + 1 : 0;
+      city = rest.substring(0, cityEnd);
+      county = rest.substring(cityEnd);
+    } else {
+      county = regionName;
+    }
+  }
+  
+  return {
+    scope: user.dataScope,
+    province,
+    city,
+    county,
+    enterprise: user.dataScope === DataScope.ENTERPRISE ? user.realName : '',
+  };
+}
+
+function filterAreasByScope(areas: MiningArea[], user: User | null): MiningArea[] {
+  const scope = getCurrentScope(user);
+  
+  if (scope.scope === DataScope.NATIONAL) return areas;
+  
+  if (scope.scope === DataScope.PROVINCIAL && scope.province) {
+    return areas.filter(a => a.province === scope.province);
+  }
+  
+  if (scope.scope === DataScope.MUNICIPAL && scope.city) {
+    return areas.filter(a => a.city === scope.city || a.province === scope.city);
+  }
+  
+  if (scope.scope === DataScope.COUNTY && scope.county) {
+    return areas.filter(a => a.county === scope.county);
+  }
+  
+  if (scope.scope === DataScope.ENTERPRISE) {
+    return areas.filter(a => a.province === '江苏省' && a.city === '南京市').slice(0, 2);
+  }
+  
+  if (scope.scope === DataScope.LAW_ENFORCEMENT) {
+    return areas.filter(a => a.status === AreaStatus.WARNING);
+  }
+  
+  return areas;
+}
 
 export const useAppStore = create<AppState>()(
   devtools(
@@ -198,15 +271,84 @@ export const useAppStore = create<AppState>()(
         },
         
         fetchDashboardMetrics: () => {
-          set({ dashboardMetrics: generateDashboardMetrics() });
+          const user = get().user;
+          const scope = getCurrentScope(user);
+          const allAreas = generateMiningAreas(50);
+          const areas = filterAreasByScope(allAreas, user);
+          
+          if (areas.length === 0) {
+            set({ dashboardMetrics: generateDashboardMetrics() });
+            return;
+          }
+          
+          const totalSandMining = areas.reduce((sum, a) => sum + a.actualAmount, 0);
+          const totalPermitted = areas.reduce((sum, a) => sum + a.permittedAmount, 0);
+          const overMiningRate = totalPermitted > 0 
+            ? Math.max(0, ((totalSandMining - totalPermitted) / totalPermitted) * 100) 
+            : 0;
+          const avgHealthIndex = areas.reduce((sum, a) => sum + a.healthIndex, 0) / areas.length;
+          const warningAreas = areas.filter(a => a.status === AreaStatus.WARNING).length;
+          
+          set({
+            dashboardMetrics: {
+              totalSandMining: Math.round(totalSandMining * 100) / 100,
+              overMiningRate: Math.round(overMiningRate * 10) / 10,
+              healthIndex: Math.round(avgHealthIndex * 10) / 10,
+              complianceRate: Math.round((1 - warningAreas / areas.length) * 100 * 10) / 10,
+              activeWarningCount: warningAreas,
+              pendingApprovalCount: Math.floor(warningAreas * 0.6),
+              yoyGrowth: getRandomInRange(-5, 15, 1),
+              momGrowth: getRandomInRange(-3, 10, 1),
+            }
+          });
         },
         
         fetchProvinceData: () => {
-          set({ provinceData: generateProvinceData() });
+          const user = get().user;
+          const scope = getCurrentScope(user);
+          const allData = generateProvinceData();
+          
+          if (scope.scope === DataScope.NATIONAL) {
+            set({ provinceData: allData });
+            return;
+          }
+          
+          const areas = filterAreasByScope(generateMiningAreas(50), user);
+          const provinceSet = new Set(areas.map(a => a.province));
+          
+          const filtered = allData.filter(p => provinceSet.has(p.name)).map(p => {
+            const provinceAreas = areas.filter(a => a.province === p.name);
+            const totalActual = provinceAreas.reduce((sum, a) => sum + a.actualAmount, 0);
+            const avgHealth = provinceAreas.length > 0 
+              ? provinceAreas.reduce((sum, a) => sum + a.healthIndex, 0) / provinceAreas.length 
+              : p.healthIndex;
+            return { ...p, value: Math.round(totalActual * 100) / 100, healthIndex: Math.round(avgHealth * 10) / 10 };
+          });
+          
+          set({ provinceData: filtered.length > 0 ? filtered : allData.slice(0, 3) });
         },
         
         fetchHealthRank: () => {
-          set({ healthRank: generateHealthRank(15) });
+          const user = get().user;
+          const allAreas = generateMiningAreas(50);
+          const areas = filterAreasByScope(allAreas, user);
+          
+          const sortedAreas = [...areas].sort((a, b) => b.healthIndex - a.healthIndex);
+          const rank: HealthRankItem[] = sortedAreas
+            .slice(0, Math.min(15, sortedAreas.length))
+            .map((a, idx) => {
+              const change = getRandomInRange(-5, 5, 1);
+              return {
+                rank: idx + 1,
+                areaName: a.name,
+                province: a.province,
+                healthIndex: a.healthIndex,
+                lastWeekIndex: a.healthIndex - change,
+                change,
+              };
+            });
+          
+          set({ healthRank: rank });
         },
         
         fetchTrendData: () => {
@@ -215,6 +357,7 @@ export const useAppStore = create<AppState>()(
         
         fetchMiningAreas: (filters) => {
           let areas = generateMiningAreas(50);
+          areas = filterAreasByScope(areas, get().user);
           if (filters?.province) {
             areas = areas.filter(a => a.province === filters.province);
           }
@@ -253,7 +396,11 @@ export const useAppStore = create<AppState>()(
         },
         
         fetchWarnings: (filters) => {
-          let warnings = generateWarnings(15);
+          const user = get().user;
+          const allAreas = generateMiningAreas(50);
+          const filteredAreas = filterAreasByScope(allAreas, user);
+          
+          let warnings = generateWarnings(Math.max(10, filteredAreas.length / 3), filteredAreas);
           if (filters?.status) {
             warnings = warnings.filter(w => w.status === filters.status);
           }
@@ -310,7 +457,11 @@ export const useAppStore = create<AppState>()(
         },
         
         fetchPermits: (filters) => {
-          let permits = generateMiningPermits(15);
+          const user = get().user;
+          const allAreas = generateMiningAreas(50);
+          const filteredAreas = filterAreasByScope(allAreas, user);
+          
+          let permits = generateMiningPermits(Math.max(8, Math.min(15, filteredAreas.length)), filteredAreas);
           if (filters?.status) {
             permits = permits.filter(p => p.status === filters.status);
           }
@@ -329,12 +480,87 @@ export const useAppStore = create<AppState>()(
         uploadPermitExcel: async (file: File) => {
           set({ isLoading: true });
           await new Promise(resolve => setTimeout(resolve, 1500));
-          set({ isLoading: false });
-          return file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+          
+          const user = get().user;
+          const allAreas = generateMiningAreas(50);
+          const filteredAreas = filterAreasByScope(allAreas, user);
+          
+          const importedPermits: MiningPermit[] = [];
+          const newWorkOrders: WorkOrder[] = [];
+          
+          const importCount = Math.min(5, filteredAreas.length);
+          for (let i = 0; i < importCount; i++) {
+            const area = filteredAreas[i];
+            const permittedAmount = getRandomInRange(100, 400, 2);
+            const actualAmount = area.actualAmount;
+            const exceedRate = Math.max(0, ((actualAmount - permittedAmount) / permittedAmount) * 100);
+            
+            let status: PermitStatus = PermitStatus.VALID;
+            if (exceedRate >= 10) status = PermitStatus.EXCEEDED;
+            
+            const permitId = `permit-import-${Date.now()}-${i}`;
+            
+            const workOrders: WorkOrder[] = [];
+            if (exceedRate >= 10) {
+              const order: WorkOrder = {
+                id: `workorder-import-${Date.now()}-${i}`,
+                permitId,
+                areaId: area.id,
+                areaName: area.name,
+                type: 'permit_exceed',
+                typeName: '许可超限',
+                description: `Excel导入后自动检测：实际采砂量超出许可量${exceedRate.toFixed(1)}%，请执法人员现场核查处置`,
+                status: WorkOrderStatus.PENDING,
+                assignee: 'law001',
+                assigneeName: '执法人员王队',
+                createTime: Date.now(),
+              };
+              workOrders.push(order);
+              newWorkOrders.push(order);
+            }
+            
+            importedPermits.push({
+              id: permitId,
+              permitNo: `采许字[2026]第${3000 + i}号`,
+              areaId: area.id,
+              areaName: area.name,
+              enterprise: `Excel导入企业${i + 1}`,
+              permittedAmount,
+              actualAmount,
+              exceedRate: Math.round(exceedRate * 10) / 10,
+              validFrom: '2026-01-01',
+              validTo: '2026-12-31',
+              status,
+              workOrders,
+              createTime: Date.now(),
+            });
+          }
+          
+          const existingPermits = get().permits;
+          const mergedPermits = [...importedPermits, ...existingPermits];
+          
+          const existingOrders = get().workOrders;
+          const mergedOrders = [...newWorkOrders, ...existingOrders];
+          
+          set({ 
+            isLoading: false, 
+            permits: mergedPermits,
+            workOrders: mergedOrders,
+          });
+          
+          return {
+            success: file.name.endsWith('.xlsx') || file.name.endsWith('.xls'),
+            importedCount: importedPermits.length,
+            newWorkOrderCount: newWorkOrders.length,
+          };
         },
         
         fetchWorkOrders: (filters) => {
-          let orders = generateWorkOrders(12);
+          const user = get().user;
+          const allAreas = generateMiningAreas(50);
+          const filteredAreas = filterAreasByScope(allAreas, user);
+          
+          let orders = generateWorkOrders(Math.max(5, Math.min(12, filteredAreas.length)), filteredAreas);
           if (filters?.status) {
             orders = orders.filter(o => o.status === filters.status);
           }

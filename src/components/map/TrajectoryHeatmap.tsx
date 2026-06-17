@@ -10,6 +10,48 @@ interface TrajectoryHeatmapProps {
 }
 
 export function TrajectoryHeatmap({ data, center = [104, 35], boundary, height = 400 }: TrajectoryHeatmapProps) {
+  const viewBounds = useMemo(() => {
+    let minLng = center[0];
+    let maxLng = center[0];
+    let minLat = center[1];
+    let maxLat = center[1];
+
+    if (data && data.length > 0) {
+      const lngs = data.map(d => d[0]);
+      const lats = data.map(d => d[1]);
+      minLng = Math.min(minLng, ...lngs);
+      maxLng = Math.max(maxLng, ...lngs);
+      minLat = Math.min(minLat, ...lats);
+      maxLat = Math.max(maxLat, ...lats);
+    }
+
+    const boundaryPoints = boundary && boundary.length > 0 
+      ? boundary 
+      : [
+          [center[0] - 0.05, center[1] - 0.05],
+          [center[0] + 0.05, center[1] - 0.05],
+          [center[0] + 0.05, center[1] + 0.05],
+          [center[0] - 0.05, center[1] + 0.05],
+        ];
+    
+    const bLngs = boundaryPoints.map(p => p[0]);
+    const bLats = boundaryPoints.map(p => p[1]);
+    minLng = Math.min(minLng, ...bLngs);
+    maxLng = Math.max(maxLng, ...bLngs);
+    minLat = Math.min(minLat, ...bLats);
+    maxLat = Math.max(maxLat, ...bLats);
+
+    const lngPad = (maxLng - minLng) * 0.2 || 0.1;
+    const latPad = (maxLat - minLat) * 0.2 || 0.1;
+
+    return {
+      minLng: minLng - lngPad,
+      maxLng: maxLng + lngPad,
+      minLat: minLat - latPad,
+      maxLat: maxLat + latPad,
+    };
+  }, [data, center, boundary]);
+
   const option = useMemo<EChartsOption>(() => ({
     tooltip: {
       position: 'top',
@@ -44,8 +86,9 @@ export function TrajectoryHeatmap({ data, center = [104, 35], boundary, height =
       axisLine: { lineStyle: { color: '#cbd5e0' } },
       axisLabel: { color: '#718096', fontSize: 10 },
       splitLine: { lineStyle: { color: '#edf2f7', type: 'dashed' } },
-      min: center[0] - 0.15,
-      max: center[0] + 0.15,
+      min: viewBounds.minLng,
+      max: viewBounds.maxLng,
+      scale: true,
     },
     yAxis: {
       type: 'value',
@@ -54,8 +97,9 @@ export function TrajectoryHeatmap({ data, center = [104, 35], boundary, height =
       axisLine: { lineStyle: { color: '#cbd5e0' } },
       axisLabel: { color: '#718096', fontSize: 10 },
       splitLine: { lineStyle: { color: '#edf2f7', type: 'dashed' } },
-      min: center[1] - 0.15,
-      max: center[1] + 0.15,
+      min: viewBounds.minLat,
+      max: viewBounds.maxLat,
+      scale: true,
     },
     series: [
       {

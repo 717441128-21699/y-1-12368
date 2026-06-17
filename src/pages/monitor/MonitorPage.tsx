@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Radio, MapPin, Camera, Droplets, Ship } from 'lucide-react';
 import { useAppStore } from '../../store';
@@ -6,7 +6,9 @@ import { MonitorMap } from './components/MonitorMap';
 import { ShipList } from './components/ShipList';
 import { VideoWall } from './components/VideoWall';
 import { WaterMonitor } from './components/WaterMonitor';
-import { Select } from 'antd';
+import { Select, Tag } from 'antd';
+import { generateWaterMonitorData } from '../../mock/data';
+import type { WaterMonitorData } from '../../types';
 
 type MonitorTab = 'map' | 'video' | 'water';
 
@@ -26,6 +28,13 @@ export function MonitorPage() {
     startRealTimeUpdates,
     stopRealTimeUpdates,
   } = useAppStore();
+
+  const defaultWaterData = useMemo<WaterMonitorData[]>(() => {
+    return generateWaterMonitorData(48);
+  }, []);
+
+  const displayWaterData = selectedAreaId ? waterMonitorData : defaultWaterData;
+  const selectedArea = miningAreas.find(a => a.id === selectedAreaId);
 
   useEffect(() => {
     fetchMiningAreas();
@@ -230,15 +239,31 @@ export function MonitorPage() {
       {activeTab === 'water' && (
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="section-title mb-0">水情实时监测</h3>
+            <div className="flex items-center gap-3">
+              <h3 className="section-title mb-0">水情实时监测</h3>
+              {selectedArea ? (
+                <Tag color="blue" className="m-0">
+                  当前: {selectedArea.name}
+                </Tag>
+              ) : (
+                <Tag color="default" className="m-0">
+                  全国平均
+                </Tag>
+              )}
+            </div>
             <div className="flex items-center gap-4 text-sm text-gray-500">
               <span className="flex items-center gap-1">
                 <Droplets size={14} className="text-blue-500" />
-                监测站点 <span className="font-semibold text-gray-800">{waterMonitorData.length}</span> 个
+                监测数据 <span className="font-semibold text-gray-800">{displayWaterData.length}</span> 条
               </span>
             </div>
           </div>
-          <WaterMonitor data={waterMonitorData} />
+          {!selectedArea && (
+            <p className="text-xs text-gray-400 mb-4">
+              提示：点击左侧地图中的采砂区可查看该区域的水情数据
+            </p>
+          )}
+          <WaterMonitor data={displayWaterData} />
         </div>
       )}
     </div>

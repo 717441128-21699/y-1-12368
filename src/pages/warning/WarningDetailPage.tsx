@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, AlertTriangle, Clock, MapPin, User, CheckCircle, XCircle,
-  Clock3, FileText, Mountain, Droplets, Send
+  Clock3, FileText, Mountain, Droplets, Send, Lock
 } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -45,10 +45,29 @@ export function WarningDetailPage() {
   }
 
   const currentNode = currentWarning.approvalFlow[currentWarning.currentNode];
-  const canApprove = currentNode && currentWarning.currentNode < currentWarning.approvalFlow.length &&
+  const isFlowActive = currentNode && currentWarning.currentNode < currentWarning.approvalFlow.length &&
     currentWarning.status !== WarningStatus.APPROVED &&
     currentWarning.status !== WarningStatus.REJECTED &&
     currentWarning.status !== WarningStatus.CLOSED;
+
+  const userRole = user?.role || '';
+  const canApproveCurrentNode = isFlowActive && (
+    userRole === 'national_admin' ||
+    userRole === currentNode?.requireRole ||
+    (currentNode?.requireRole === 'enterprise' && userRole === 'enterprise') ||
+    (currentNode?.requireRole === 'county_admin' && userRole === 'county_admin') ||
+    (currentNode?.requireRole === 'provincial_admin' && userRole === 'provincial_admin')
+  );
+
+  const getRoleName = (role: string) => {
+    const roleMap: Record<string, string> = {
+      'enterprise': '采砂企业',
+      'county_admin': '县级水利局',
+      'provincial_admin': '省级河长办',
+      'national_admin': '国家级管理员',
+    };
+    return roleMap[role] || role;
+  };
 
   const handleApprove = async () => {
     if (!opinion.trim()) {
@@ -106,7 +125,7 @@ export function WarningDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {canApprove && (
+          {canApproveCurrentNode ? (
             <>
               <button
                 onClick={() => setRejectionModalVisible(true)}
@@ -123,7 +142,12 @@ export function WarningDetailPage() {
                 通过
               </button>
             </>
-          )}
+          ) : isFlowActive ? (
+            <div className="text-sm text-gray-500 flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-lg">
+              <Lock size={14} />
+              当前节点需由「{currentNode ? getRoleName(currentNode.requireRole) : '-'}」处理
+            </div>
+          ) : null}
         </div>
       </div>
 
